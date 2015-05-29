@@ -1,0 +1,2 @@
+/net/cremi/nbremond/Projet/fichiers/CMakeFiles/atoms.dir
+/net/cremi/nbremond/Projet/fichiers/libsotl/CMakeFiles/sotl.dir
