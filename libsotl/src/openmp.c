@@ -76,31 +76,32 @@ static void omp_bounce (sotl_device_t *dev)
 {
     sotl_atom_set_t *set = &dev->atom_set;
     sotl_domain_t *domain = &dev->domain;
+    calc_t coef = 0;
 
 #pragma omp parallel for schedule(static)
     for (unsigned n = 0; n < set->natoms; n++) {
         if (set->pos.x[n]+set->speed.dx[n] <= domain->min_ext[0]){
-            set->speed.dx[n] = -0.5*set-> speed.dx[n];
+            set->speed.dx[n] = -coef*set-> speed.dx[n];
             atom_state[n]=SHOCK_PERIOD;
         }
         if (set->pos.x[n]+set->speed.dx[n] >= domain->max_ext[0]){
-            set->speed.dx[n] = -0.5*set-> speed.dx[n];
+            set->speed.dx[n] = -coef*set-> speed.dx[n];
             atom_state[n]=SHOCK_PERIOD;
         }
         if (set->pos.y[n]+set->speed.dy[n] <= domain->min_ext[1]){
-            set->speed.dy[n] = -0.5*set-> speed.dy[n];
+            set->speed.dy[n] = -coef*set-> speed.dy[n];
             atom_state[n]=SHOCK_PERIOD;
         }
         if (set->pos.y[n]+set->speed.dy[n] >= domain->max_ext[1]){
-            set->speed.dy[n] = -0.5*set->speed.dy[n];
+            set->speed.dy[n] = -coef*set->speed.dy[n];
             atom_state[n]=SHOCK_PERIOD;
         }
         if (set->pos.z[n]+set->speed.dz[n] <= domain->min_ext[2]){
-            set->speed.dz[n] = -0.5*set-> speed.dz[n];
+            set->speed.dz[n] = -coef*set-> speed.dz[n];
             atom_state[n]=SHOCK_PERIOD;
         }
         if (set->pos.z[n]+set->speed.dz[n] >= domain->max_ext[2]){
-            set->speed.dz[n] = -0.5*set-> speed.dz[n];
+            set->speed.dz[n] = -coef*set-> speed.dz[n];
             atom_state[n]=SHOCK_PERIOD;
         }
     }
@@ -126,7 +127,9 @@ static calc_t lennard_jones (calc_t r2)
     r6 = LENNARD_SIGMA * LENNARD_SIGMA * rr2;
     r6 = r6 * r6 * r6;
 
-    return 24 * LENNARD_EPSILON * rr2 * (2.0f * r6 * r6 - r6);
+    calc_t result = 24 * LENNARD_EPSILON * rr2 * (2.0f * r6 * r6 - r6);
+    assert(!isnan(result) && !isinf(result));//else, atom can go out of the domain and get_num_box crashes
+    return result;
 }
 
 static void set_force(sotl_atom_set_t *set, calc_t *force, int current, int other){
@@ -263,9 +266,9 @@ static void omp_force_boites (sotl_device_t *dev){
             for (int j=-1; j<=1; j++){
                 for (int k=-1; k<=1; k++){
                     int other_box_id = box_id+
-                        i+
+                        k+
                         (j*domain->boxes[0])+
-                        (k*domain->boxes[0]*domain->boxes[1]);
+                        (i*domain->boxes[0]*domain->boxes[1]);//note that other is may not be a neighbour of current box. (if current box is near a border)
                     if (other_box_id < 0 || (unsigned) other_box_id > domain->total_boxes)
                         continue;
                     for (unsigned int other = last_element[other_box_id];
@@ -279,30 +282,6 @@ static void omp_force_boites (sotl_device_t *dev){
         set->speed.dx[current] += force[0];
         set->speed.dy[current] += force[1];
         set->speed.dz[current] += force[2];
-    }
-
-
-
-    /*
-       for (unsigned int other = min_z; other < set->natoms; other++){
-       if (set->pos.z[other] - set->pos.z[current] > LENNARD_CUTOFF){ //Atoms not in the range (Max)
-       break;
-       }
-       if (set->pos.z[current] - set->pos.z[other] > LENNARD_CUTOFF){ // Atoms not in the range (Min)
-       min_z ++;
-       }
-       else{ //Atoms in the range
-
-    //Set forces
-    set_force(set, force, current, other);
-    }
-    }
-
-    set->speed.dx[current] += force[0];
-    set->speed.dx[set->offset + current] += force[1];
-    set->speed.dx[set->offset * 2 + current] += force[2];
-    }
-    */
 }
 
 static void omp_force (sotl_device_t *dev){

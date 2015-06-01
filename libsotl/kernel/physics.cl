@@ -204,7 +204,14 @@ __kernel
 void gravity (__global calc_t * speed, calc_t gx, calc_t gy, calc_t gz,
 	      unsigned natoms, unsigned offset)
 {
-  // TODO
+  // TODO done
+    const unsigned gid = get_global_id(0);
+    coord_t gravity;
+    gravity.x=gx;
+    gravity.y=gy;
+    gravity.z=gz;
+
+    inc3coord (speed + gid, gravity, offset);
 }
 
 
