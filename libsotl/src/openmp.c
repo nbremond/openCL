@@ -13,6 +13,9 @@
 #include <omp.h>
 
 static int *atom_state = NULL;
+static int *nb_elements = NULL;
+static int *last_element = NULL;
+static int *intermediate_sum = NULL;
 static sotl_atom_set_t* tmp_set;
 
 
@@ -153,6 +156,7 @@ static void omp_force_z (sotl_device_t *dev)
     for (unsigned int current = 0; current < set->natoms; current++) {
         atom_state[current] = omp_get_thread_num();
         calc_t force[3] = { 0.0, 0.0, 0.0 };
+    int *intermediate_sum = malloc(sizeof(int)*(omp_get_max_threads()+1));
 
 
 
@@ -180,8 +184,6 @@ static void omp_force_boites (sotl_device_t *dev){
     sotl_atom_set_t *set = &dev->atom_set;
     sotl_domain_t *domain = &dev->domain;
 
-    int *nb_elements = malloc(sizeof(*nb_elements)*domain->total_boxes);
-    int *last_element = malloc(sizeof(*last_element)*(domain->total_boxes + 1));
 
     memset(nb_elements, 0, sizeof(*nb_elements)*domain->total_boxes);
 
@@ -194,7 +196,6 @@ static void omp_force_boites (sotl_device_t *dev){
     }
 
     //caluclate cumulate sum.
-    int *intermediate_sum = malloc(sizeof(int)*(omp_get_max_threads()+1));
     memset(intermediate_sum, 0, sizeof(int)*(omp_get_max_threads()+1));
     int split = domain->total_boxes/omp_get_max_threads();
 #pragma omp parallel
@@ -205,11 +206,11 @@ static void omp_force_boites (sotl_device_t *dev){
             intermediate_sum[omp_get_thread_num()+1]+=nb_elements[i];
         }
     }//remember that the last elements are not count
-    printf("total : %d\n",set->natoms);
-    printf("int[0]%d\n",intermediate_sum[0]);
+    //printf("total : %d\n",set->natoms);
+    //printf("int[0]%d\n",intermediate_sum[0]);
     for (unsigned int i = 1; i < omp_get_max_threads(); i++){
         intermediate_sum[i]+=intermediate_sum[i-1];
-        printf("intermediate[%d]\t%d\n",i,intermediate_sum[i]);
+        //printf("intermediate[%d]\t%d\n",i,intermediate_sum[i]);
     }
     for (unsigned int i = 0; i < omp_get_max_threads(); i++){
         last_element[i*split]=intermediate_sum[i];
@@ -363,6 +364,9 @@ void omp_alloc_buffers (sotl_device_t *dev)
     atom_set_init(tmp_set,dev->atom_set.natoms,dev->atom_set.natoms);
     atom_state = calloc(dev->atom_set.natoms, sizeof(int));
     printf("natoms: %d\n", dev->atom_set.natoms);
+    nb_elements = malloc(sizeof(*nb_elements)*dev->domain.total_boxes);
+    last_element = malloc(sizeof(*last_element)*(dev->domain.total_boxes + 1));
+    intermediate_sum = malloc(sizeof(int)*(omp_get_max_threads()+1));
 }
 
 void omp_finalize (sotl_device_t *dev)
@@ -370,4 +374,7 @@ void omp_finalize (sotl_device_t *dev)
     free(atom_state);
     atom_set_free(tmp_set);
     dev->compute = SOTL_COMPUTE_OMP; // dummy op to avoid warning
+    free(nb_elements);
+    free(last_element);
+    free(intermediate_sum);
 }
