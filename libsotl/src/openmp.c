@@ -16,7 +16,7 @@ static int *atom_state = NULL;
 static int *nb_elements = NULL;
 static int *last_element = NULL;
 static int *intermediate_sum = NULL;
-static sotl_atom_set_t* tmp_set;
+static sotl_atom_set_t* tmp_set = NULL;
 
 
 #define SHOCK_PERIOD  50
@@ -247,15 +247,10 @@ static void omp_force_boites (sotl_device_t *dev){
         tmp_set->speed.dy[new_pos] = set->speed.dy[current];
         tmp_set->speed.dz[new_pos] = set->speed.dz[current];
     }
-#pragma omp parallel for schedule(static)
-    for (unsigned int current = 0; current < set->natoms; current ++){//Place all atoms in related box
-        set->pos.x[current] = tmp_set->pos.x[current];
-        set->pos.y[current] = tmp_set->pos.y[current];
-        set->pos.z[current] = tmp_set->pos.z[current];
-        set->speed.dx[current] = tmp_set->speed.dx[current];
-        set->speed.dy[current] = tmp_set->speed.dy[current];
-        set->speed.dz[current] = tmp_set->speed.dz[current];
-    }
+    //switch the two sets
+    sotl_atom_set_t old_tmp_set = *tmp_set;
+    *tmp_set = *set;
+    *set = old_tmp_set;
 
     //Now compute interractions
 #pragma omp parallel for schedule(static)
