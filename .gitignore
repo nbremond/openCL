@@ -1,0 +1,9 @@
+CMakeFiles
+libsotl/CMakeFiles
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+libsotl/Makefile
+libsotl/cmake_install.cmake
+bin
+libsotl/libsotl.so
